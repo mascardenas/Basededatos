@@ -1,0 +1,72 @@
+import pyodbc
+
+def print_table(columns, rows):
+    # convertir a strings y calcular anchos
+    str_rows = [["" if v is None else str(v) for v in row] for row in rows]
+    widths = [max(len(col), max((len(r[i]) for r in str_rows), default=0)) for i, col in enumerate(columns)]
+
+    # líneas de separación
+    sep = "+" + "+".join("-" * (w + 2) for w in widths) + "+"
+
+    # encabezado
+    header = "| " + " | ".join(columns[i].ljust(widths[i]) for i in range(len(columns))) + " |"
+
+    print(sep)
+    print(header)
+    print(sep)
+
+    # filas: alinear numéricos a la derecha si es posible
+    for orig_row, srow in zip(rows, str_rows):
+        cells = []
+        for i, cell in enumerate(srow):
+            # detectar tipo numérico por el valor original
+            val = orig_row[i]
+            if isinstance(val, (int, float, complex)):
+                cells.append(cell.rjust(widths[i]))
+            else:
+                cells.append(cell.ljust(widths[i]))
+        print("| " + " | ".join(cells) + " |")
+        print(sep)
+
+
+def main():
+    db_path = r".\Almacen1.accdb"  # ajusta si es necesario
+    conn_str = (
+        r"Driver={Microsoft Access Driver (*.mdb, *.accdb)};"
+        rf"DBQ={db_path};"
+    )
+
+    query = (
+        "SELECT Productos.NombreProducto as Producto, Proveedores.NombreCompañía as Compañia, Proveedores.Teléfono, "
+        "Categorías.NombreCategoría as Categoria, Productos.UnidadesEnExistencia as Stock, Productos.UnidadesEnPedido as Pedido "
+        "FROM (Productos LEFT JOIN Proveedores ON Productos.IdProveedor = Proveedores.IdProveedor) "
+        "LEFT JOIN Categorías ON Productos.IdCategoría = Categorías.IdCategoría "
+        "WHERE UnidadesEnExistencia > 100;"
+    )
+
+    conn = None
+    cursor = None
+    try:
+        conn = pyodbc.connect(conn_str)
+        cursor = conn.cursor()
+        cursor.execute(query)
+
+        columnas = [col[0] for col in cursor.description]
+        filas = cursor.fetchall()
+
+        # imprimir en formato tabla
+        print_table(columnas, filas)
+
+      
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+
+if __name__ == "__main__":
+    main()
+
+
